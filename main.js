@@ -1,8 +1,4 @@
-const electron = require('electron')
-// Module to control application life.
-const app = electron.app
-// Module to create native browser window.
-const BrowserWindow = electron.BrowserWindow
+const { app, ipcMain, session, net, BrowserWindow } = require('electron')
 
 const port = parseInt(process.env.PORT, 10) || 3000
 const dev = process.env.NODE_ENV !== 'production'
@@ -13,10 +9,12 @@ let mainWindow
 
 function createWindow () {
   // Create the browser window.
-  mainWindow = new BrowserWindow({width: 800, height: 600})
+  mainWindow = new BrowserWindow({ width: 800, height: 600 })
 
   // and load the index.html of the app.
-  mainWindow.loadURL(dev ? `http://localhost:${port}` : `file://${__dirname}/build/index.html`)
+  mainWindow.loadURL(
+    dev ? `http://localhost:${port}` : `file://${__dirname}/build/index.html`
+  )
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools()
@@ -54,3 +52,28 @@ app.on('activate', function () {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
+ipcMain.on('LoginSuccess', (event, partition) => {
+  const ses = session.fromPartition(partition)
+  ses.cookies.get({ domain: '.taobao.com' }, (error, cookies) => {
+    const tbToken = cookies.filter(cookie => cookie.name === '_tb_token_')[0]
+      .value
+
+    const url = `https://freeway.ju.taobao.com/tg/json/queryItems.htm?_tb_token_=${tbToken}&_input_charset=UTF-8&activityEnterId=28584701&itemStatusCode=0&actionStatus=0&inputType=itemName&nameorid=&itemName=&currentPage=1&pageSize=10`
+    const request = net.request({
+      session: ses,
+      method: 'GET',
+      url
+    })
+
+    console.log(url)
+
+    request.on('response', response => {
+      console.log(`STATUS: ${response.statusCode}`)
+      response.on('data', chunk => {
+        console.log(JSON.parse(chunk.toString()))
+      })
+    })
+
+    request.end()
+  })
+})

@@ -1,0 +1,29 @@
+{
+  "name": "poju-app",
+  "version": "0.1.0",
+  "private": true,
+  "homepage": "./",
+  "scripts": {
+    "prod": "cross-env NODE_ENV=production electron main.js",
+    "start": "concurrently -r \"cross-env BROWSER=none react-scripts start\" \"wait-on http://localhost:3000 && electron main.js\"",
+    "build": "react-scripts build",
+    "test": "react-scripts test --env=jsdom",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "react": "^16.1.1",
+    "react-dom": "^16.1.1",
+    "react-scripts": "1.0.17"
+  },
+  "devDependencies": {
+    "babel-eslint": "^8.0.2",
+    "concurrently": "^3.5.0",
+    "cross-env": "^5.1.1",
+    "electron": "^1.7.9",
+    "standard": "^10.0.3",
+    "wait-on": "^2.0.2"
+  },
+  "standard": {
+    "parser": "babel-eslint"
+  }
+}

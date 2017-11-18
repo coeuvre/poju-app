@@ -1,6 +1,7 @@
-const { app, ipcMain, session, net, BrowserWindow } = require('electron')
+const { app, ipcMain, session, BrowserWindow } = require('electron')
 const moment = require('moment')
-const iconv = require('iconv-lite')
+const Utils = require('./Utils')
+const Ipc = require('./Ipc')
 
 const port = parseInt(process.env.PORT, 10) || 3000
 const dev = process.env.NODE_ENV !== 'production'
@@ -15,12 +16,12 @@ function createWindow () {
     width: 800,
     height: 600,
     show: false,
-    icon: `${__dirname}/public/favicon.ico`
+    icon: `${__dirname}/../public/favicon.ico`
   })
 
   // and load the index.html of the app.
   mainWindow.loadURL(
-    dev ? `http://localhost:${port}` : `file://${__dirname}/build/index.html`
+    dev ? `http://localhost:${port}` : `file://${__dirname}/../build/index.html`
   )
 
   // Open the DevTools.
@@ -38,15 +39,15 @@ function createWindow () {
     mainWindow = null
   })
 
-  session
-    .fromPartition('persist:ju')
-    .webRequest.onBeforeSendHeaders(
-      { urls: ['https://freeway.ju.taobao.com/tg/json/queryItems*'] },
-      (details, callback) => {
-        console.dir(details)
-        callback({ cancel: false, requestHeaders: details.requestHeaders })
-      }
-    )
+  // session
+  //   .fromPartition('persist:ju')
+  //   .webRequest.onBeforeSendHeaders(
+  //     { urls: ['https://freeway.ju.taobao.com/tg/json/queryItems*'] },
+  //     (details, callback) => {
+  //       console.dir(details)
+  //       callback({ cancel: false, requestHeaders: details.requestHeaders })
+  //     }
+  //   )
 }
 
 // This method will be called when Electron has finished
@@ -74,64 +75,9 @@ app.on('activate', function () {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
-async function setCookie (ses, cookie) {
-  return await new Promise((resolve, reject) => {
-    ses.cookies.set(cookie, error => {
-      if (error) {
-        console.dir(error)
-        reject(error)
-      }
-
-      resolve()
-    })
-  })
-}
-
-async function getCookies (ses, options) {
-  return await new Promise((resolve, reject) => {
-    ses.cookies.get(options, (error, cookies) => {
-      if (error) {
-        reject(error)
-      }
-
-      resolve(cookies)
-    })
-  })
-}
-
-async function doRequest (options) {
-  const request = net.request(options)
-
-  if (options.session) {
-    const cookies = await getCookies(options.session, {})
-    const cookie = cookies
-      .filter(cookie => options.url.indexOf(cookie.domain) !== -1)
-      .map(cookie => `${cookie.name}=${cookie.value}`)
-      .join('; ')
-    request.setHeader('Cookie', cookie)
-  }
-
-  return await new Promise((resolve, reject) => {
-    request.on('response', response => {
-      let chunks = []
-
-      response.on('data', chunk => {
-        chunks.push(chunk)
-      })
-
-      response.on('end', () => resolve(Buffer.concat(chunks)))
-
-      response.on('error', error => reject(error))
-    })
-    request.on('error', error => reject(error))
-    request.end()
-  })
-}
-
 ipcMain.on('LoginSuccess', async (event, partition) => {
   const ses = session.fromPartition(partition)
-
-  const cookies = await getCookies(ses, {})
+  const cookies = await Utils.getCookies(ses, {})
 
   // Persist all session cookie
   for (let cookie of cookies) {
@@ -147,16 +93,18 @@ ipcMain.on('LoginSuccess', async (event, partition) => {
 
     cookie.expirationDate = moment().add(10, 'year').unix()
     cookie.url = url
-    await setCookie(ses, cookie)
+    await Utils.setCookie(ses, cookie)
   }
 
   // const tbToken = cookies.filter(cookie => cookie.name === '_tb_token_')[0]
   //   .value
   // const url = `https://freeway.ju.taobao.com/tg/json/queryItems.htm?_tb_token_=${tbToken}&_input_charset=UTF-8&activityEnterId=28584701&itemStatusCode=0&actionStatus=0&inputType=itemName&nameorid=&itemName=&currentPage=1&pageSize=10`
-  // const body = await doRequest({
+  // const body = await Utils.doRequest({
   //   session: ses,
   //   method: 'GET',
   //   url
   // })
   // console.dir(JSON.parse(iconv.decode(body, 'gbk')))
 })
+
+Ipc.initMain()

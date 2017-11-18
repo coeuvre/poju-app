@@ -1,32 +1,44 @@
 import React from 'react'
+import { Redirect } from 'react-router-dom'
+import { observer } from 'mobx-react'
+
+import Utils from '../Utils'
 
 const juEntry = 'https://freeway.ju.taobao.com/'
-const juPartition = 'persist:ju'
 
-export default class Page extends React.Component {
+class Page extends React.Component {
   didFinishLoad = () => {
     const webview = this.refs.webview
 
     if (webview.getURL().startsWith(juEntry)) {
-      console.log('Login successful!')
-      window.electron.ipcRenderer.send('LoginSuccess', juPartition)
+      window.electron.ipcRenderer.send('LoginSuccess', Utils.juParition)
+
+      this.props.isLogin = true
     }
   }
 
   componentDidMount () {
     const webview = this.refs.webview
 
-    webview.addEventListener('did-finish-load', this.didFinishLoad)
+    if (webview) {
+      webview.addEventListener('did-finish-load', this.didFinishLoad)
+    }
   }
 
   render () {
+    if (this.props.isLogin) {
+      return <Redirect to='/' />
+    }
+
     return (
       <webview
         ref='webview'
         src={juEntry}
         style={{ width: '100%', height: '100%' }}
-        partition={juPartition}
+        partition={Utils.juParition}
       />
     )
   }
 }
+
+export default observer(Page)

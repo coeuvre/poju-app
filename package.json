@@ -2,7 +2,7 @@
   "name": "poju-app",
   "version": "0.1.0",
   "private": true,
-  "main": "main.js",
+  "main": "app/main.js",
   "homepage": "./",
   "scripts": {
     "prod": "cross-env NODE_ENV=production electron main.js",
@@ -21,7 +21,6 @@
     "styled-components": "^2.2.3"
   },
   "devDependencies": {
-    "cross-env": "^5.1.1",
-    "electron": "^1.7.9"
+    "cross-env": "^5.1.1"
   }
 }

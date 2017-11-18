@@ -133,6 +133,7 @@ ipcMain.on('LoginSuccess', async (event, partition) => {
 
   const cookies = await getCookies(ses, {})
 
+  // Persist all session cookie
   for (let cookie of cookies) {
     if (cookie.expirationDate) {
       continue
@@ -149,13 +150,13 @@ ipcMain.on('LoginSuccess', async (event, partition) => {
     await setCookie(ses, cookie)
   }
 
-  const tbToken = cookies.filter(cookie => cookie.name === '_tb_token_')[0]
-    .value
-  const url = `https://freeway.ju.taobao.com/tg/json/queryItems.htm?_tb_token_=${tbToken}&_input_charset=UTF-8&activityEnterId=28584701&itemStatusCode=0&actionStatus=0&inputType=itemName&nameorid=&itemName=&currentPage=1&pageSize=10`
-  const body = await doRequest({
-    session: ses,
-    method: 'GET',
-    url
-  })
-  console.dir(JSON.parse(body.toString()))
+  // const tbToken = cookies.filter(cookie => cookie.name === '_tb_token_')[0]
+  //   .value
+  // const url = `https://freeway.ju.taobao.com/tg/json/queryItems.htm?_tb_token_=${tbToken}&_input_charset=UTF-8&activityEnterId=28584701&itemStatusCode=0&actionStatus=0&inputType=itemName&nameorid=&itemName=&currentPage=1&pageSize=10`
+  // const body = await doRequest({
+  //   session: ses,
+  //   method: 'GET',
+  //   url
+  // })
+  // console.dir(JSON.parse(iconv.decode(body, 'gbk')))
 })

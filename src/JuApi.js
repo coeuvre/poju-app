@@ -1,4 +1,6 @@
-async function ipcRequest (channel, request) {
+const partition = 'persist:ju'
+
+async function ipc (channel, request) {
   const ipcRenderer = window.electron.ipcRenderer
   return await new Promise((resolve, reject) => {
     ipcRenderer.once(channel, (event, response, error) => {
@@ -12,13 +14,16 @@ async function ipcRequest (channel, request) {
   })
 }
 
-function initRenderer () {}
+async function checkIsLogin () {
+  return await ipc('checkIsLogin', { partition })
+}
 
-async function checkIsLogin (partition) {
-  return await ipcRequest('checkIsLogin', { partition })
+async function fetchJuItemList (request) {
+  return await ipc('fetchJuItemList', { ...request, partition })
 }
 
 export default {
-  initRenderer,
-  checkIsLogin
+  partition,
+  checkIsLogin,
+  fetchJuItemList
 }

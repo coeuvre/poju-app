@@ -18,6 +18,10 @@ function initMain () {
   bind('checkIsLogin', async request => {
     return await JuApi.checkIsLogin(request.partition)
   })
+
+  bind('fetchJuItemList', async request => {
+    return await JuApi.queryItems(request)
+  })
 }
 
 module.exports = {

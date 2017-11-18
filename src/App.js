@@ -1,21 +1,23 @@
 import React from 'react'
 import { BrowserRouter as Router, Switch, Route } from 'react-router-dom'
-import { observable } from 'mobx'
+import { extendObservable } from 'mobx'
 import { observer } from 'mobx-react'
 import DevTools from 'mobx-react-devtools'
 
 import PrivateRoute from './components/PrivateRoute'
-import Ipc from './Ipc'
-import Utils from './Utils'
 
-import LoginPage from './pages/Login'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
 
 class App extends React.Component {
-  isLogin = observable.box(false)
+  constructor () {
+    super()
 
+    extendObservable(this, {
+      app: { isLogin: false }
+    })
+  }
   render () {
-    const isLogin = this.isLogin
-
     return (
       <div style={{ height: '100%' }}>
         <Router>
@@ -23,14 +25,9 @@ class App extends React.Component {
             <Route
               path='/login'
               exact
-              component={() => <LoginPage isLogin={isLogin} />}
+              component={() => <Login app={this.app} />}
             />
-            <PrivateRoute
-              isLogin={isLogin}
-              path='/'
-              exact
-              component={() => <p>LLL</p>}
-            />
+            <PrivateRoute app={this.app} path='/' exact component={Dashboard} />
           </Switch>
         </Router>
 

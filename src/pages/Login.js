@@ -1,44 +1,69 @@
 import React from 'react'
 import { Redirect } from 'react-router-dom'
+import { extendObservable, action } from 'mobx'
 import { observer } from 'mobx-react'
 
-import Utils from '../Utils'
+import JuApi from '../JuApi'
 
 const juEntry = 'https://freeway.ju.taobao.com/'
 
-class Page extends React.Component {
-  didFinishLoad = () => {
-    const webview = this.refs.webview
+export default observer(
+  class Page extends React.Component {
+    constructor () {
+      super()
 
-    if (webview.getURL().startsWith(juEntry)) {
-      window.electron.ipcRenderer.send('LoginSuccess', Utils.juParition)
-
-      this.props.isLogin = true
-    }
-  }
-
-  componentDidMount () {
-    const webview = this.refs.webview
-
-    if (webview) {
-      webview.addEventListener('did-finish-load', this.didFinishLoad)
-    }
-  }
-
-  render () {
-    if (this.props.isLogin) {
-      return <Redirect to='/' />
+      extendObservable(this, {
+        display: false,
+        showWebview: action(() => {
+          this.display = true
+        }),
+        setLogin: action(() => {
+          this.props.app.isLogin = true
+        })
+      })
     }
 
-    return (
-      <webview
-        ref='webview'
-        src={juEntry}
-        style={{ width: '100%', height: '100%' }}
-        partition={Utils.juParition}
-      />
-    )
-  }
-}
+    didFinishLoad = () => {
+      const webview = this.refs.webview
 
-export default observer(Page)
+      if (webview.getURL().startsWith(juEntry)) {
+        console.log('Login successfully!')
+        window.electron.ipcRenderer.send('LoginSuccess', JuApi.partition)
+
+        this.setLogin()
+      } else {
+        this.showWebview()
+      }
+    }
+
+    componentDidMount () {
+      const webview = this.refs.webview
+
+      if (webview) {
+        webview.addEventListener('did-finish-load', this.didFinishLoad)
+      }
+    }
+
+    render () {
+      if (this.props.app.isLogin) {
+        return <Redirect to='/' />
+      }
+
+      return (
+        <div>
+          {!this.display && <p>Logining...</p>}
+          <webview
+            ref='webview'
+            src={juEntry}
+            style={{
+              opacity: this.display ? 1 : 0,
+              width: '100%',
+              height: '100%'
+            }}
+            partition={JuApi.partition}
+          />
+        </div>
+      )
+    }
+  }
+)

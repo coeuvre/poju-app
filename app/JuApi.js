@@ -3,14 +3,15 @@ const iconv = require('iconv-lite')
 
 const Utils = require('./Utils')
 
-async function queryItems (
-  partition,
-  activityEnterId,
-  itemStatusCode = 0,
-  actionStatus = 0,
-  currentPage = 1,
-  pageSize = 10
-) {
+async function queryItems (request) {
+  const {
+    partition,
+    activityEnterId,
+    itemStatusCode,
+    actionStatus,
+    currentPage,
+    pageSize
+  } = request
   const ses = session.fromPartition(partition)
   const cookies = await Utils.getCookies(ses, {})
   const tbToken = cookies.filter(cookie => cookie.name === '_tb_token_')[0]
@@ -26,7 +27,14 @@ async function queryItems (
 }
 
 async function checkIsLogin (partition) {
-  const response = await queryItems(partition, 1, 0, 0, 1, 0)
+  const response = await queryItems({
+    partition,
+    activityEnterId: 1,
+    itemStatusCode: 0,
+    actionStatus: 0,
+    currentPage: 1,
+    pageSize: 0
+  })
   return response.success
 }
 

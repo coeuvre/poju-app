@@ -1,7 +1,5 @@
 import React from 'react'
 
-const { ipcRenderer } = window.require('electron')
-
 const juEntry = 'https://freeway.ju.taobao.com/'
 const juPartition = 'persist:ju'
 
@@ -11,9 +9,7 @@ export default class Page extends React.Component {
 
     if (webview.getURL().startsWith(juEntry)) {
       console.log('Login successful!')
-      ipcRenderer.send('LoginSuccess', juPartition)
-      // const cookies = session.fromPartition(juPartition).cookies
-      // console.log(cookies)
+      window.electron.ipcRenderer.send('LoginSuccess', juPartition)
     }
   }
 

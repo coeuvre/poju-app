@@ -1,8 +1,31 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { extendObservable, action, runInAction } from 'mobx'
 import { observer } from 'mobx-react'
+import { Link } from 'react-router-dom'
 
 import JuApi from '../JuApi'
+
+class ExternalLink extends React.Component {
+  static propTypes = {
+    children: PropTypes.node.isRequired,
+    href: PropTypes.string.isRequired
+  }
+
+  open = () => {
+    const { href } = this.props
+
+    window.electron.shell.openExternal(href)
+  }
+
+  render () {
+    return (
+      <a onClick={this.open} style={{ cursor: 'pointer' }}>
+        {this.props.children}
+      </a>
+    )
+  }
+}
 
 const JuItemList = observer(
   class JuItemList extends React.Component {
@@ -62,7 +85,7 @@ const JuItemList = observer(
           <label>
             activityEnterId:
             <input
-              value={this.observable}
+              value={this.activityEnterId}
               onChange={this.onChangeActivityEnterId}
             />
           </label>
@@ -98,6 +121,14 @@ const JuItemList = observer(
               <span>商品 ID：{item.itemId}</span>
               <span>商品名称：{item.itemName}</span>
               <span>商品状态：{item.itemStatus.statusMsg}</span>
+              {item.viewList.map(view => (
+                <ExternalLink
+                  key={view.id}
+                  href={`https://freeway.ju.taobao.com${view.url}`}
+                >
+                  {view.name}
+                </ExternalLink>
+              ))}
             </div>
           ))}
         </div>

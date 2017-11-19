@@ -4,7 +4,7 @@ import { inject, observer } from 'mobx-react'
 import qs from 'qs'
 
 export default inject('store')(
-  observer(({ component: Component, store, ...rest }) => (
+  observer(({ store, component: Component, ...rest }) => (
     <Route
       {...rest}
       render={props =>

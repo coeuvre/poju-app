@@ -5,15 +5,22 @@ import DevTools from 'mobx-react-devtools'
 
 import PrivateRoute from './components/PrivateRoute'
 
+import RootStore from './stores/index'
+
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import RootStore from './stores/index'
+import ItemApplyFormDetail from './pages/ItemApplyFormDetail'
 
 const Routes = () => (
   <Router>
     <Switch>
       <Route path='/login' exact component={Login} />
       <PrivateRoute path='/' exact component={Dashboard} />
+      <PrivateRoute
+        path='/item-apply-form-detail'
+        exact
+        component={ItemApplyFormDetail}
+      />
     </Switch>
   </Router>
 )

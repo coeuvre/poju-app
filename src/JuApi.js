@@ -19,7 +19,7 @@ async function checkIsLogin () {
 }
 
 async function fetchJuItemList (request) {
-  return await ipc('fetchJuItemList', { ...request, partition })
+  return await ipc('fetchJuItemList', { partition, ...request })
 }
 
 export default {

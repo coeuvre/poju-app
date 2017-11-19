@@ -2,7 +2,11 @@ import './index.css'
 
 import React from 'react'
 import ReactDOM from 'react-dom'
+import * as mobx from 'mobx'
+
 import App from './App'
+
+mobx.useStrict(true)
 
 window.electron = window.require && window.require('electron')
 

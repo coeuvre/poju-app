@@ -1,40 +1,38 @@
 import React from 'react'
 import { BrowserRouter as Router, Switch, Route } from 'react-router-dom'
-import { extendObservable } from 'mobx'
-import { observer } from 'mobx-react'
+import { Provider } from 'mobx-react'
 import DevTools from 'mobx-react-devtools'
 
 import PrivateRoute from './components/PrivateRoute'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import RootStore from './stores/index'
+
+const Routes = () => (
+  <Router>
+    <Switch>
+      <Route path='/login' exact component={Login} />
+      <PrivateRoute path='/' exact component={Dashboard} />
+    </Switch>
+  </Router>
+)
 
 class App extends React.Component {
-  constructor () {
-    super()
-
-    extendObservable(this, {
-      app: { isLogin: false }
-    })
-  }
   render () {
     return (
-      <div style={{ height: '100%' }}>
-        <Router>
-          <Switch>
-            <Route
-              path='/login'
-              exact
-              component={() => <Login app={this.app} />}
-            />
-            <PrivateRoute app={this.app} path='/' exact component={Dashboard} />
-          </Switch>
-        </Router>
-
+      <div>
+        <Routes />
         <DevTools />
       </div>
     )
   }
 }
 
-export default observer(App)
+const Root = () => (
+  <Provider store={new RootStore()}>
+    <App />
+  </Provider>
+)
+
+export default Root

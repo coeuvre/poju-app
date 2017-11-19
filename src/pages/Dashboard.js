@@ -1,5 +1,5 @@
 import React from 'react'
-import { extendObservable, action } from 'mobx'
+import { extendObservable, action, runInAction } from 'mobx'
 import { observer } from 'mobx-react'
 
 import JuApi from '../JuApi'
@@ -29,7 +29,12 @@ const JuItemList = observer(
         }),
 
         preview: action(async () => {
+          if (this.isLoading) {
+            return
+          }
+
           this.isLoading = true
+
           const response = await JuApi.fetchJuItemList({
             activityEnterId: this.activityEnterId,
             itemStatusCode: this.itemStatusCode,
@@ -39,11 +44,13 @@ const JuItemList = observer(
           })
           console.log(response)
 
-          this.isLoading = false
+          runInAction(() => {
+            this.isLoading = false
 
-          if (response.success) {
-            this.items = response.itemList
-          }
+            if (response.success) {
+              this.items = response.itemList
+            }
+          })
         })
       })
     }
@@ -84,10 +91,10 @@ const JuItemList = observer(
           </select>
           <button onClick={this.preview}>查询</button>
           {this.isLoading && <p>Loading</p>}
-          {this.items.length == 0 && <p>Empty</p>}
+          {this.items.length === 0 && <p>Empty</p>}
           {this.items.map(item => (
             <div key={item.juId}>
-              <img src={item.itemPicUrl} />
+              <img alt={item.itemName} src={item.itemPicUrl} />
               <span>商品 ID：{item.itemId}</span>
               <span>商品名称：{item.itemName}</span>
               <span>商品状态：{item.itemStatus.statusMsg}</span>
@@ -112,4 +119,4 @@ const Page = observer(
   }
 )
 
-export default observer(Page)
+export default Page

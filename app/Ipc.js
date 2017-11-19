@@ -36,7 +36,9 @@ function initMain () {
   bind('saveExcel', async request => {
     return await new Promise((resolve, reject) => {
       dialog.showSaveDialog({ defaultPath: 'test.xlsx' }, filename => {
-        XLSX.writeFile(request.workbook, filename)
+        if (filename) {
+          XLSX.writeFile(request.workbook, filename)
+        }
       })
     })
   })

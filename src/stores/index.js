@@ -1,4 +1,4 @@
-import UiStore from './ui'
+import UiStore from './Ui'
 
 export default class RootStore {
   constructor () {

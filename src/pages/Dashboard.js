@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { extendObservable, action, runInAction } from 'mobx'
+import { extendObservable, action, computed, autorun, runInAction } from 'mobx'
 import { observer } from 'mobx-react'
 import XLSX from 'xlsx'
 
@@ -25,6 +25,61 @@ class ExternalLink extends React.Component {
         {this.props.children}
       </a>
     )
+  }
+}
+
+class FetchListTask {
+  constructor () {
+    extendObservable(this, {
+      isStarted: false,
+      isFinished: false,
+      isAbortRequested: false,
+      isAbort: false,
+      total: 0,
+      progress: 0,
+      items: [],
+      isLoading: computed(() => this.isStarted && !this.isFinished),
+
+      /**
+       * @param list []
+       * @param fetchItem (e) => Item
+       */
+      start: action(async (list, fetchItem) => {
+        if (this.isLoading) {
+          throw Error('Already started')
+        }
+
+        this.isStarted = true
+        this.isFinished = false
+        this.isAbortRequested = false
+        this.isAbort = false
+        this.total = list.length
+        this.progress = 0
+        this.items = []
+
+        for (let item of list) {
+          if (this.isAbortRequested) {
+            break
+          }
+          const result = await fetchItem(item)
+          runInAction(() => {
+            this.items.push(result)
+            this.progress = this.progress + 1
+          })
+        }
+
+        runInAction(() => {
+          this.isAbort = this.isAbortRequested
+          this.isFinished = true
+        })
+
+        return this.items
+      }),
+
+      abort: action(() => {
+        this.isAbortRequested = true
+      })
+    })
   }
 }
 
@@ -83,6 +138,8 @@ const JuItemList = observer(
         itemStatusCode: '0',
         actionStatus: '0',
         items: [],
+        fetchPageTask: new FetchListTask(),
+        fetchListTask: new FetchListTask(),
         isLoading: false,
 
         onChangeActivityEnterId: action(event => {
@@ -134,22 +191,44 @@ const JuItemList = observer(
             itemStatusCode: this.itemStatusCode,
             actionStatus: this.actionStatus,
             currentPage: 1,
-            pageSize: 10
+            pageSize: 1
           })
 
-          console.log(response)
-
-          const items = []
-          for (let item of response.itemList) {
-            console.log(`Fetch item ${item.juId}`)
-            const itemApplyFormDetail = await JuApi.fetchItemApplyFormDetail(
-              item.juId
-            )
-            console.log(itemApplyFormDetail)
-            items.push(itemApplyFormDetail)
+          const pageSize = 20
+          const totalPage = Math.ceil(response.totalItem / pageSize)
+          const list = []
+          for (let currentPage = 1; currentPage <= totalPage; ++currentPage) {
+            list.push({
+              currentPage,
+              pageSize
+            })
           }
 
-          exportItems(items)
+          const pages = await this.fetchPageTask.start(list, async item => {
+            return await JuApi.fetchJuItemList({
+              activityEnterId: this.activityEnterId,
+              itemStatusCode: this.itemStatusCode,
+              actionStatus: this.actionStatus,
+              currentPage: item.currentPage,
+              pageSize: item.pageSize
+            })
+          })
+
+          let items = []
+
+          for (let page of pages) {
+            items = [...items, ...page.itemList]
+          }
+
+          const itemApplyFormDetails = await this.fetchListTask.start(
+            items,
+            async item => {
+              console.log(`Fetch item ${item.juId}`)
+              return await JuApi.fetchItemApplyFormDetail(item.juId)
+            }
+          )
+
+          exportItems(itemApplyFormDetails)
 
           runInAction(() => {
             this.isLoading = false
@@ -193,7 +272,38 @@ const JuItemList = observer(
             <option value='1'>待完善</option>
           </select>
           <button disabled={this.isLoading} onClick={this.preview}>查询</button>
-          <button disabled={this.isLoading} onClick={this.export}>导出</button>
+          <button disabled={this.isLoading} onClick={this.export}>
+            导出
+          </button>
+          {this.fetchPageTask.isStarted &&
+            <div>
+              <p>
+                读取列表页：
+                {this.fetchPageTask.progress}
+                /
+                {this.fetchPageTask.total}
+                {this.fetchPageTask.isLoading &&
+                  <button
+                    disabled={this.fetchPageTask.isAbortRequested}
+                    onClick={() => this.fetchPageTask.abort()}
+                  >
+                    停止
+                  </button>}
+              </p>
+              <p>
+                读取商品详情：
+                {this.fetchListTask.progress}
+                /
+                {this.fetchListTask.total}
+                {this.fetchListTask.isLoading &&
+                  <button
+                    disabled={this.fetchListTask.isAbortRequested}
+                    onClick={() => this.fetchListTask.abort()}
+                  >
+                    停止
+                  </button>}
+              </p>
+            </div>}
           {this.isLoading && <p>Loading</p>}
           {this.items.length === 0 && <p>Empty</p>}
           {this.items.map(item => (

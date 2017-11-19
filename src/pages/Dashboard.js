@@ -2,9 +2,10 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { extendObservable, action, runInAction } from 'mobx'
 import { observer } from 'mobx-react'
-import { Link } from 'react-router-dom'
+import XLSX from 'xlsx'
 
 import JuApi from '../JuApi'
+import Utils from '../Utils'
 
 class ExternalLink extends React.Component {
   static propTypes = {
@@ -25,6 +26,51 @@ class ExternalLink extends React.Component {
       </a>
     )
   }
+}
+
+function sheetFromArrayOfArrays (data, opts) {
+  const MAX = 10000000
+  const sheet = {}
+  const range = { s: { c: MAX, r: MAX }, e: { c: 0, r: 0 } }
+  for (let row = 0; row !== data.length; ++row) {
+    for (let col = 0; col !== data[row].length; ++col) {
+      if (range.s.r > row) {
+        range.s.r = row
+      }
+      if (range.s.c > col) {
+        range.s.c = col
+      }
+      if (range.e.r < row) {
+        range.e.r = row
+      }
+      if (range.e.c < col) {
+        range.e.c = col
+      }
+
+      const cell = { v: data[row][col], t: 's' }
+      const cellRef = XLSX.utils.encode_cell({ c: col, r: row })
+
+      sheet[cellRef] = cell
+    }
+  }
+
+  if (range.s.c < MAX) {
+    sheet['!ref'] = XLSX.utils.encode_range(range)
+  }
+
+  return sheet
+}
+
+async function exportItems (items) {
+  const sheetName = 'Sheet 1'
+  const sheet = sheetFromArrayOfArrays([
+    JuApi.ItemApplyFormDetailType.map(type => type.name),
+    ...items.map(item =>
+      JuApi.ItemApplyFormDetailType.map(type => item[type.key])
+    )
+  ])
+  const workbook = { SheetNames: [sheetName], Sheets: { [sheetName]: sheet } }
+  await Utils.ipc('saveExcel', { workbook })
 }
 
 const JuItemList = observer(
@@ -74,6 +120,40 @@ const JuItemList = observer(
               this.items = response.itemList
             }
           })
+        }),
+
+        export: action(async () => {
+          if (this.isLoading) {
+            return
+          }
+
+          this.isLoading = true
+
+          const response = await JuApi.fetchJuItemList({
+            activityEnterId: this.activityEnterId,
+            itemStatusCode: this.itemStatusCode,
+            actionStatus: this.actionStatus,
+            currentPage: 1,
+            pageSize: 10
+          })
+
+          console.log(response)
+
+          const items = []
+          for (let item of response.itemList) {
+            console.log(`Fetch item ${item.juId}`)
+            const itemApplyFormDetail = await JuApi.fetchItemApplyFormDetail(
+              item.juId
+            )
+            console.log(itemApplyFormDetail)
+            items.push(itemApplyFormDetail)
+          }
+
+          exportItems(items)
+
+          runInAction(() => {
+            this.isLoading = false
+          })
         })
       })
     }
@@ -112,7 +192,8 @@ const JuItemList = observer(
             <option value='0'>全部操作状态</option>
             <option value='1'>待完善</option>
           </select>
-          <button onClick={this.preview}>查询</button>
+          <button disabled={this.isLoading} onClick={this.preview}>查询</button>
+          <button disabled={this.isLoading} onClick={this.export}>导出</button>
           {this.isLoading && <p>Loading</p>}
           {this.items.length === 0 && <p>Empty</p>}
           {this.items.map(item => (

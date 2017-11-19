@@ -3,6 +3,7 @@ import { Redirect } from 'react-router-dom'
 import { extendObservable, action } from 'mobx'
 import { inject, observer } from 'mobx-react'
 
+import Utils from '../Utils'
 import JuApi from '../JuApi'
 
 const juEntry = 'https://freeway.ju.taobao.com/'
@@ -42,14 +43,16 @@ export default inject('store')(
       componentDidMount () {
         const webview = this.refs.webview
 
-        if (webview) {
-          webview.addEventListener('did-finish-load', this.didFinishLoad)
-        }
+        webview.addEventListener('did-finish-load', this.didFinishLoad)
       }
 
       render () {
+        const { location } = this.props
+
         if (this.props.store.ui.isLogin) {
-          return <Redirect to='/' />
+          const query = Utils.parseQueryString(location.search)
+          const to = query.redirect || '/'
+          return <Redirect to={to} />
         }
 
         return (

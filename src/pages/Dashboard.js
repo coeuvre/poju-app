@@ -1,7 +1,6 @@
 import React from 'react'
 import { observable, action, computed, runInAction } from 'mobx'
 import { observer } from 'mobx-react'
-import XLSX from 'xlsx'
 
 import JuApi from '../JuApi'
 import Utils from '../Utils'
@@ -75,49 +74,27 @@ class FetchListTask {
   }
 }
 
-function sheetFromArrayOfArrays (data, opts) {
-  const MAX = 10000000
-  const sheet = {}
-  const range = { s: { c: MAX, r: MAX }, e: { c: 0, r: 0 } }
-  for (let row = 0; row !== data.length; ++row) {
-    for (let col = 0; col !== data[row].length; ++col) {
-      if (range.s.r > row) {
-        range.s.r = row
-      }
-      if (range.s.c > col) {
-        range.s.c = col
-      }
-      if (range.e.r < row) {
-        range.e.r = row
-      }
-      if (range.e.c < col) {
-        range.e.c = col
-      }
-
-      const cell = { v: data[row][col], t: 's' }
-      const cellRef = XLSX.utils.encode_cell({ c: col, r: row })
-
-      sheet[cellRef] = cell
-    }
-  }
-
-  if (range.s.c < MAX) {
-    sheet['!ref'] = XLSX.utils.encode_range(range)
-  }
-
-  return sheet
-}
-
 async function exportItems (items) {
-  const sheetName = 'Sheet 1'
-  const sheet = sheetFromArrayOfArrays([
-    JuApi.ItemApplyFormDetailType.map(type => type.name),
+  const data = [
+    JuApi.ItemApplyFormDetailType.map(type => ({
+      value: type.name,
+      font: {
+        color: { argb: 'FFFFFFFF' }
+      },
+      fill: {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF000000' }
+      }
+    })),
     ...items.map(item =>
-      JuApi.ItemApplyFormDetailType.map(type => item[type.key])
+      JuApi.ItemApplyFormDetailType.map(type => ({
+        value: item[type.key]
+      }))
     )
-  ])
-  const workbook = { SheetNames: [sheetName], Sheets: { [sheetName]: sheet } }
-  await Utils.ipc('saveExcel', { workbook })
+  ]
+
+  await Utils.ipc('writeExcel', { filename: 'test.xlsx', data })
 }
 
 @observer class JuItemList extends React.Component {

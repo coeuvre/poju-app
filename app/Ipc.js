@@ -1,6 +1,6 @@
 const { session, dialog, ipcMain } = require('electron')
 const iconv = require('iconv-lite')
-const XLSX = require('xlsx')
+const Excel = require('exceljs')
 
 const Utils = require('./Utils')
 
@@ -33,12 +33,22 @@ function initMain () {
     return iconv.decode(body, encoding)
   })
 
-  bind('saveExcel', async request => {
+  bind('writeExcel', async request => {
     return await new Promise((resolve, reject) => {
-      dialog.showSaveDialog({ defaultPath: 'test.xlsx' }, filename => {
-        if (filename) {
-          XLSX.writeFile(request.workbook, filename)
+      const workbook = new Excel.Workbook()
+      const sheet = workbook.addWorksheet('Sheet 1')
+
+      for (let [rowIndex, row] of request.data.entries()) {
+        for (let [colIndex, col] of row.entries()) {
+          const cell = sheet.getRow(rowIndex + 1).getCell(colIndex + 1)
+          for (let key in col) {
+            cell[key] = col[key]
+          }
         }
+      }
+
+      dialog.showSaveDialog({ defaultPath: request.filename }, filename => {
+        workbook.xlsx.writeFile(filename)
       })
     })
   })

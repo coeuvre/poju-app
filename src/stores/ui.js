@@ -1,9 +1,5 @@
-import { extendObservable } from 'mobx'
+import { observable } from 'mobx'
 
 export default class UiStore {
-  constructor () {
-    extendObservable(this, {
-      isLogin: false
-    })
-  }
+  @observable isLogin = false
 }

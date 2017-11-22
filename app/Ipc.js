@@ -48,7 +48,9 @@ function initMain () {
       }
 
       dialog.showSaveDialog({ defaultPath: request.filename }, filename => {
-        workbook.xlsx.writeFile(filename)
+        if (filename) {
+          workbook.xlsx.writeFile(filename)
+        }
       })
     })
   })

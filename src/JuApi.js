@@ -241,7 +241,7 @@ async function fetchItemApplyFormDetail (juId) {
   const form = doc.querySelector('#J_DetailForm')
 
   if (!form) {
-    return
+    throw new Error(doc.querySelector('.state-notice').innerHTML.trim())
   }
 
   const result = {}

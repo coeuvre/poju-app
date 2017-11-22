@@ -87,11 +87,27 @@ async function exportItems (items) {
         fgColor: { argb: 'FF000000' }
       }
     })),
-    ...items.map(item =>
-      JuApi.ItemApplyFormDetailType.map(type => ({
+    ...items.map(item => {
+      let data = JuApi.ItemApplyFormDetailType.map(type => ({
         value: item[type.key]
       }))
-    )
+
+      if (item.error) {
+        data = data.map(cell => ({
+          ...cell,
+          fill: {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFC7CE' }
+          }
+        }))
+        data.push({
+          value: item.error
+        })
+      }
+
+      return data
+    })
   ]
 
   await Utils.ipc('writeExcel', { filename: 'test.xlsx', data })
@@ -187,8 +203,18 @@ async function exportItems (items) {
     const itemApplyFormDetails = await this.fetchListTask.start(
       items,
       async item => {
-        console.log(`Fetch item ${item.juId}`)
-        return await JuApi.fetchItemApplyFormDetail(item.juId)
+        try {
+          return await JuApi.fetchItemApplyFormDetail(item.juId)
+        } catch (error) {
+          const result = {
+            juId: item.juId.toString(),
+            itemId: item.itemId.toString(),
+            shortTitle: item.itemName,
+            error: error.message
+          }
+          console.log(result)
+          return result
+        }
       }
     )
 

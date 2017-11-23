@@ -21,6 +21,209 @@ class ExternalLink extends React.Component {
   }
 }
 
+class ConcurrentTask {
+  constructor (concurrent, executor) {
+    this.concurrent = concurrent
+    this.executor = executor
+  }
+
+  id = 0
+  pendingTask = []
+  pendingPromise = []
+
+  push = task => {
+    this.pendingTask.push({ id: this.id, task })
+    this.id += 1
+  }
+
+  exec = async task => {
+    try {
+      const result = await this.executor(task.task)
+      return {
+        id: task.id,
+        result
+      }
+    } catch (error) {
+      return {
+        id: task.id,
+        error
+      }
+    }
+  }
+
+  poll = async () => {
+    while (
+      this.pendingPromise.length < this.concurrent &&
+      this.pendingTask.length > 0
+    ) {
+      const task = this.pendingTask.pop()
+      this.pendingPromise.push({ id: task.id, promise: this.exec(task) })
+    }
+
+    if (this.isFinished()) {
+      throw Error('finished task')
+    }
+
+    const resolved = await Promise.race(
+      this.pendingPromise.map(it => it.promise)
+    )
+
+    this.pendingPromise = this.pendingPromise.filter(
+      it => it.id !== resolved.id
+    )
+
+    if (resolved.error) {
+      throw resolved.error
+    }
+
+    return resolved.result
+  }
+
+  isFinished = () =>
+    this.pendingTask.length === 0 && this.pendingPromise.length === 0
+}
+
+class FetchPagedItemDetailTask {
+  @observable isLoading = false
+  @observable isInterrupted = false
+  @observable totalPage = 0
+  @observable fetchedPage = 0
+  @observable totalItem = 0
+  fetchedItemDetail = []
+
+  /**
+   * @param options {
+   *   concurrentFetchPage: number,
+   *   concurrentFetchItem: number,
+   *   pageSize: number,
+   *   fetchPage: ({ index, size }) => { items: [], total },
+   *   fetchItemDetail: (item) => {}
+   * }
+   */
+  @action perform = async ({
+    concurrentFetchPage,
+    concurrentFetchItem,
+    pageSize,
+    fetchPage,
+    fetchItemDetail
+  }) => {
+    const startTask = async task => {
+      if (task.page) {
+        try {
+          const result = await fetchPage(task.page)
+          return {
+            page: task.page,
+            total: result.total,
+            items: result.items
+          }
+        } catch (error) {
+          return {
+            page: task.page,
+            error
+          }
+        }
+      } else if (task.item) {
+        try {
+          const result = await fetchItemDetail(task.item)
+          return {
+            index: task.index,
+            item: task.item,
+            detail: result
+          }
+        } catch (error) {
+          return {
+            index: task.index,
+            item: task.item,
+            error
+          }
+        }
+      }
+    }
+
+    let progress = 0
+    let isPendingPageTaskInit = false
+    let pendingPageTask = []
+    let pendingItemTask = []
+    let pendingPagePromise = [
+      { index: 0, promise: startTask({ page: { index: 0, size: pageSize } }) }
+    ]
+    let pendingItemPromise = []
+
+    while (pendingPagePromise.length > 0 || pendingItemPromise.length > 0) {
+      const result = await Promise.race([
+        ...pendingPagePromise.map(it => it.promise),
+        ...pendingItemPromise.map(it => it.promise)
+      ])
+
+      if (result.page) {
+        console.log(result)
+
+        pendingPagePromise = pendingPagePromise.filter(
+          p => p.index !== result.page.index
+        )
+
+        const page = result.page
+        const index = page.index
+        const size = page.size
+        const total = result.total
+        const items = result.items
+
+        if (!isPendingPageTaskInit) {
+          isPendingPageTaskInit = true
+
+          runInAction(() => {
+            this.fetchedItemDetail = new Array(total)
+          })
+
+          const totalPage = Math.ceil(total / size)
+
+          for (let i = 1; i < totalPage; ++i) {
+            pendingPageTask.push({ page: { index: i, size: pageSize } })
+          }
+        }
+
+        for (let [i, item] of items.entries()) {
+          pendingItemTask.push({ index: index * size + i, item })
+        }
+      } else if (result.item) {
+        pendingItemPromise = pendingItemPromise.filter(
+          p => p.index !== result.index
+        )
+
+        ++progress
+        runInAction(() => {
+          this.fetchedItemDetail[result.index] = result.detail
+        })
+      }
+
+      while (
+        pendingPagePromise.length < concurrentFetchPage &&
+        pendingPageTask.length > 0
+      ) {
+        const pageTask = pendingPageTask.pop()
+        pendingPagePromise.push({
+          index: pageTask.page.index,
+          promise: startTask(pageTask)
+        })
+      }
+
+      while (
+        pendingItemPromise.length < concurrentFetchItem &&
+        pendingItemTask.length > 0
+      ) {
+        const itemTask = pendingItemTask.pop()
+        pendingItemPromise.push({
+          index: itemTask.index,
+          promise: startTask(itemTask)
+        })
+      }
+    }
+
+    console.log(progress)
+    console.log(this.fetchedItemDetail)
+  }
+}
+
 class FetchListTask {
   @observable isStarted = false
   @observable isFinished = false
@@ -120,6 +323,29 @@ async function exportItems (items) {
   @observable items = []
   @observable fetchPageTask = new FetchListTask()
   @observable fetchListTask = new FetchListTask()
+  // @observable fetchPagedItemDetailTask = new FetchPagedItemDetailTask()
+  @observable fetchPageConcurrentTask = new ConcurrentTask(
+    10,
+    async ({ index, size }) => {
+      console.log(`Fetching page ${index} with size ${size}`)
+      const response = await JuApi.fetchJuItemList({
+        activityEnterId: this.activityEnterId,
+        itemStatusCode: this.itemStatusCode,
+        actionStatus: this.actionStatus,
+        currentPage: index + 1,
+        pageSize: size
+      })
+      // console.log(`Done page ${index} with size ${size}`)
+      return {
+        total: response.totalItem,
+        items: response.itemList
+      }
+    }
+  )
+  @observable fetchItemConcurrentTask = new ConcurrentTask(100, async item => {
+    // console.log(`Fetching item ${item.juId}`)
+    return { item: await JuApi.fetchItemApplyFormDetail(item.juId) }
+  })
   @observable isLoading = false
 
   @action onChangeActivityEnterId = event => {
@@ -157,6 +383,71 @@ async function exportItems (items) {
         this.items = response.itemList
       }
     })
+  }
+
+  @action test = async () => {
+    const size = 10
+    this.fetchPageConcurrentTask.push({ index: 0, size })
+    const result = await this.fetchPageConcurrentTask.poll()
+    console.log(result)
+
+    for (let item of result.items) {
+      this.fetchItemConcurrentTask.push(item)
+    }
+
+    let progress = 0
+
+    const totalPage = Math.ceil(result.total / size)
+    for (let index = 1; index < totalPage; ++index) {
+      this.fetchPageConcurrentTask.push({ index, size })
+    }
+
+    while (
+      !this.fetchPageConcurrentTask.isFinished() ||
+      !this.fetchItemConcurrentTask.isFinished()
+    ) {
+      if (!this.fetchPageConcurrentTask.isFinished()) {
+        const result = await this.fetchPageConcurrentTask.poll()
+
+        for (let item of result.items) {
+          this.fetchItemConcurrentTask.push(item)
+        }
+      }
+
+      if (!this.fetchItemConcurrentTask.isFinished()) {
+        try {
+          await this.fetchItemConcurrentTask.poll()
+        } catch (error) {}
+        ++progress
+        console.log(progress)
+      }
+    }
+    // await this.fetchPagedItemDetailTask.perform({
+    //   concurrentFetchPage: 5,
+    //   concurrentFetchItem: 1,
+    //   pageSize: 10,
+    //   fetchPage: async ({ index, size }) => {
+    //     console.log(`Fetching page ${index} with size ${size}`)
+    //     const response = await JuApi.fetchJuItemList({
+    //       activityEnterId: this.activityEnterId,
+    //       itemStatusCode: this.itemStatusCode,
+    //       actionStatus: this.actionStatus,
+    //       currentPage: index + 1,
+    //       pageSize: size
+    //     })
+    //     // console.log(`Done page ${index} with size ${size}`)
+    //     return {
+    //       total: response.totalItem,
+    //       items: response.itemList
+    //     }
+    //   },
+
+    //   fetchItemDetail: async item => {
+    //     // console.log(`Fetching item ${item.juId}`)
+    //     // return await JuApi.fetchItemApplyFormDetail(item.juId)
+    //     return {}
+    //   }
+    // })
   }
 
   @action export = async () => {
@@ -257,7 +548,7 @@ async function exportItems (items) {
           <option value='1'>待完善</option>
         </select>
         <button disabled={this.isLoading} onClick={this.preview}>查询</button>
-        <button disabled={this.isLoading} onClick={this.export}>
+        <button disabled={this.isLoading} onClick={this.test}>
           导出
         </button>
         {this.fetchPageTask.isStarted &&
